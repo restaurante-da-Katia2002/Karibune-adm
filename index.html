@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - Karibune</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; padding: 20px; max-width: 700px; margin: auto; }
+        h2 { color: #d9534f; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; background: white; font-size: 14px; }
+        button { background-color: #d9534f; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
+        .btn-green { background-color: #28a745; }
+        .btn-blue { background-color: #0275d8; margin-top: 10px; }
+        .btn-grey { background-color: #6c757d; }
+        .item-list { margin-top: 10px; }
+        .dish-item { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 10px 0; }
+        .delete-btn { background-color: #dc3545; padding: 5px 10px; font-size: 12px; width: auto; }
+        .preview-box { margin-top: 10px; text-align: center; background: #f8f9fa; padding: 10px; border-radius: 6px; border: 1px dashed #ccc; }
+        .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; margin-top: 5px; border: 2px solid #d9534f; }
+
+        /* Registo de pedidos */
+        .stats { display: flex; gap: 10px; margin-bottom: 12px; }
+        .stat { flex: 1; background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; text-align: center; }
+        .stat b { display: block; font-size: 20px; color: #d9534f; }
+        .stat small { color: #666; }
+        .filters { display: flex; gap: 8px; margin-bottom: 10px; }
+        .filters > * { flex: 1; }
+        .toolbar { display: flex; gap: 8px; }
+        .toolbar button { margin-top: 0; font-size: 13px; }
+        .order { border: 1px solid #ddd; border-left: 5px solid #999; border-radius: 6px; padding: 10px; margin-top: 10px; font-size: 13px; background: #fff; }
+        .order.s-Pendente { border-left-color: #ffc107; }
+        .order.s-Confirmado { border-left-color: #0275d8; }
+        .order.s-EmEntrega { border-left-color: #6f42c1; }
+        .order.s-Entregue { border-left-color: #28a745; }
+        .order.s-Cancelado { border-left-color: #dc3545; opacity: 0.75; }
+        .order-head { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; gap: 8px; }
+        .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #eee; white-space: nowrap; }
+        .order a { color: #0275d8; }
+        .status-btns { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+        .status-btns button { width: auto; flex: 1; padding: 6px 8px; font-size: 12px; margin: 0; }
+        .log-line { font-size: 12px; border-bottom: 1px solid #eee; padding: 5px 0; color: #444; }
+        .err-line { font-size: 12px; border-bottom: 1px solid #f1c0c0; padding: 5px 0; color: #842029; word-break: break-word; }
+        .muted { color: #777; font-size: 13px; text-align: center; padding: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>Gestão - Karibune</h2>
+
+    <!-- 0. REGISTO DE PEDIDOS -->
+    <div class="card">
+        <h3>📋 Registo de Pedidos</h3>
+        <div id="newOrderBanner" style="display:none; background:#d1e7dd; border:2px solid #28a745; color:#0f5132; border-radius:6px; padding:10px; margin-bottom:10px; font-weight:bold; cursor:pointer;"></div>
+        <button type="button" class="btn-blue" id="btnSound" style="margin:0 0 10px;">🔔 Ativar som de novo pedido</button>
+        <button type="button" class="btn-green" id="btnPush" style="margin:0 0 10px;">📲 Ativar notificações (mesmo com o painel fechado)</button>
+        <div class="stats">
+            <div class="stat"><b id="statToday">0</b><small>Pedidos hoje</small></div>
+            <div class="stat"><b id="statTodayTotal">0 MT</b><small>Total hoje</small></div>
+            <div class="stat"><b id="statAll">0</b><small>Total registados</small></div>
+        </div>
+        <div class="filters">
+            <input type="date" id="filterDate">
+            <select id="filterStatus">
+                <option value="">Todos os estados</option>
+                <option>Pendente</option>
+                <option>Confirmado</option>
+                <option>Em Entrega</option>
+                <option>Entregue</option>
+                <option>Cancelado</option>
+            </select>
+        </div>
+        <div class="filters">
+            <input type="text" id="filterRef" placeholder="🔎 Procurar referência, telefone ou nº do pedido">
+            <select id="filterPay">
+                <option value="">Todos os pagamentos</option>
+                <option value="no">Por verificar</option>
+                <option value="yes">Verificados</option>
+            </select>
+        </div>
+        <div class="toolbar">
+            <button type="button" class="btn-grey" id="btnClearFilter">Limpar filtros</button>
+            <button type="button" class="btn-green" id="btnCsv">⬇ Exportar Excel (CSV)</button>
+            <button type="button" class="btn-blue" id="btnBackup" style="margin-top:0;">⬇ Cópia de segurança</button>
+        </div>
+        <div id="ordersList"><div class="muted">A carregar pedidos...</div></div>
+        <p class="muted" style="margin-bottom:0;">"Cancelado" anula o pedido e mantém-no no registo. "🗑 Eliminar" remove-o (fica cópia em deleted_orders).</p>
+    </div>
+
+    <!-- Promoções (notificação aos clientes) -->
+    <div class="card">
+        <h3>📣 Enviar Notificação aos Clientes</h3>
+        <div class="form-group">
+            <label>Frases prontas:</label>
+            <select id="promoTemplate"></select>
+        </div>
+        <div class="form-group">
+            <label>Título:</label>
+            <input type="text" id="promoTitle" maxlength="60" placeholder="Ex: 🍛 Hoje tem Karibune!">
+        </div>
+        <div class="form-group">
+            <label>Mensagem:</label>
+            <textarea id="promoBody" maxlength="160" rows="3" style="width:100%; box-sizing:border-box; padding:10px; border:1px solid #ccc; border-radius:5px; font-family:inherit; font-size:14px;" placeholder="Escreva a mensagem..."></textarea>
+        </div>
+        <button type="button" id="btnPromo">📣 Enviar a todos os clientes</button>
+        <h4 style="margin-top:15px;">Últimas enviadas:</h4>
+        <div id="promoList"><div class="muted">A carregar...</div></div>
+    </div>
+
+    <!-- Entregas próximas -->
+    <div class="card">
+        <h3>🧭 Entregas Próximas / Mesma Direção</h3>
+        <p class="muted" style="text-align:left; padding:0 0 8px;">Agrupa os pedidos ativos (Pendente, Confirmado, Em Entrega) pela localização GPS do cliente, para juntar entregas numa só viagem.</p>
+        <div class="filters">
+            <select id="nearMode">
+                <option value="dist">Agrupar: perto uns dos outros</option>
+                <option value="dir">Agrupar: mesma direção (a partir do restaurante)</option>
+            </select>
+        </div>
+        <div class="filters">
+            <select id="nearRadius">
+                <option value="300">Perto = até 300 m</option>
+                <option value="500">Perto = até 500 m</option>
+                <option value="1000" selected>Perto = até 1 km</option>
+                <option value="2000">Perto = até 2 km</option>
+                <option value="4000">Perto = até 4 km</option>
+            </select>
+            <select id="nearAngle">
+                <option value="20">Direção = ±20°</option>
+                <option value="30" selected>Direção = ±30°</option>
+                <option value="45">Direção = ±45°</option>
+            </select>
+        </div>
+        <div class="toolbar">
+            <button type="button" class="btn-blue" id="btnOrigin" style="margin-top:0;">📍 Definir restaurante (a minha posição agora)</button>
+            <button type="button" class="btn-grey" id="btnOriginClear">Limpar</button>
+        </div>
+        <p id="originStatus" class="muted"></p>
+        <div id="nearbyList"><div class="muted">A carregar...</div></div>
+    </div>
+
+    <!-- Registo de atividade -->
+    <div class="card">
+        <h3>🕘 Registo de Atividade (últimos 50)</h3>
+        <div id="activityLog"><div class="muted">A carregar...</div></div>
+    </div>
+
+    <!-- Erros do site -->
+    <div class="card">
+        <h3>⚠️ Erros do Site (últimos 30)</h3>
+        <div id="errorLog"><div class="muted">A carregar...</div></div>
+    </div>
+
+    <!-- 1. Gestão de Arroz -->
+    <div class="card">
+        <h3>1. Adicionar Arroz</h3>
+        <form id="addRiceForm">
+            <div class="form-group">
+                <label>Selecione o Arroz:</label>
+                <select id="riceOptionSelect" required onchange="updateRicePreview(this.value)">
+                    <option value="Arroz Branco de Coco|imagens/arroz-branco.jpg">Arroz Branco de Coco</option>
+                    <option value="Arroz Vermelho|imagens/arroz-vermelho.jpg">Arroz Vermelho</option>
+                    <option value="Arroz de Canjerro (Feijão Nhemba)|imagens/arroz-canjerro.jpg">Arroz de Canjerro (Feijão Nhemba)</option>
+                </select>
+            </div>
+            <div class="preview-box">
+                <img id="ricePreview" src="imagens/arroz-branco.jpg" class="preview-img" alt="Imagem">
+            </div>
+            <button type="submit" class="btn-green" style="margin-top:15px;">Salvar Este Arroz</button>
+        </form>
+        <button type="button" class="btn-blue" id="btnAllRice">+ Adicionar Todos os 3 Arrozes de Uma Vez</button>
+        <h4 style="margin-top:20px;">Arrozes Ativos no Site:</h4>
+        <div id="admin-rice-list" class="item-list"></div>
+    </div>
+
+    <!-- 2. Gestão de Acompanhamentos -->
+    <div class="card">
+        <h3>2. Adicionar / Alterar Preço de Acompanhamento</h3>
+        <form id="addDishForm">
+            <div class="form-group">
+                <label>Selecione o Acompanhamento:</label>
+                <select id="dishOptionSelect" required onchange="updateDishPreview(this.value)">
+                    <option value="Peixe|imagens/peixe.jpg">Peixe</option>
+                    <option value="Lula|imagens/lula.jpg">Lula</option>
+                    <option value="Fígado|imagens/figado.jpg">Fígado</option>
+                    <option value="Frango|imagens/frango.jpg">Frango</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Preço em Meticais (MT):</label>
+                <input type="number" id="dishPrice" value="160" placeholder="Insira o valor (Ex: 160)" required>
+            </div>
+            <div class="preview-box">
+                <img id="dishPreview" src="imagens/peixe.jpg" class="preview-img" alt="Imagem">
+            </div>
+            <button type="submit" style="margin-top:15px;">Salvar Com Este Preço</button>
+        </form>
+        <button type="button" class="btn-blue" id="btnAllDishes">+ Publicar Todos a 160 MT</button>
+        <h4 style="margin-top:20px;">Acompanhamentos e Preços Ativos:</h4>
+        <div id="admin-dishes-list" class="item-list"></div>
+    </div>
+
+    <!-- 3. Gestão de Bebidas -->
+    <div class="card">
+        <h3>3. Adicionar Bebida / Água</h3>
+        <button type="button" class="btn-blue" id="btnAllDrinks">+ Adicionar Opções de Água Mineral (1.5L e 500ml)</button>
+        <h4 style="margin-top:20px;">Bebidas Ativas no Site:</h4>
+        <div id="admin-drinks-list" class="item-list"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
+        import { getDatabase, ref, push, set, onValue, remove, update, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyAshytckwi2IZZKpygdYZNNYH3yPz3Tixg",
+          authDomain: "restaurante-karibune.firebaseapp.com",
+          databaseURL: "https://restaurante-karibune-default-rtdb.firebaseio.com",
+          projectId: "restaurante-karibune",
+          storageBucket: "restaurante-karibune.firebasestorage.app",
+          messagingSenderId: "355223804406",
+          appId: "1:355223804406:web:6b32a5ac4e7cff192c8fd7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const $ = id => document.getElementById(id);
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        const presetRiceOptions = [
+            { name: "Arroz Branco de Coco", image: "imagens/arroz-branco.jpg" },
+            { name: "Arroz Vermelho", image: "imagens/arroz-vermelho.jpg" },
+            { name: "Arroz de Canjerro (Feijão Nhemba)", image: "imagens/arroz-canjerro.jpg" }
+        ];
+        const presetDishOptions = [
+            { name: "Peixe", price: 160, image: "imagens/peixe.jpg" },
+            { name: "Lula", price: 160, image: "imagens/lula.jpg" },
+            { name: "Fígado", price: 160, image: "imagens/figado.jpg" },
+            { name: "Frango", price: 160, image: "imagens/frango.jpg" }
+        ];
+        const presetDrinkOptions = [
+            { name: "Água Mineral 1.5 Litros", price: 50 },
+            { name: "Água Mineral 500ml", price: 25 }
+        ];
+
+        /* ================== REGISTO DE PEDIDOS ================== */
+        let orders = {};   // id -> pedido
+        const STATUSES = ['Pendente', 'Confirmado', 'Em Entrega', 'Entregue', 'Cancelado'];
+
+        /* ---- Alerta de novos pedidos (os pedidos já não vão por WhatsApp) ---- */
+        let ordersLoaded = false, audioCtx = null;
+        const baseTitle = document.title;
+        function beep(times) {
+            if (!audioCtx) return;
+            for (let i = 0; i < times; i++) {
+                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.frequency.value = 880; osc.connect(gain); gain.connect(audioCtx.destination);
+                const t = audioCtx.currentTime + i * 0.4;
+                gain.gain.setValueAtTime(0.3, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                osc.start(t); osc.stop(t + 0.3);
+            }
+        }
+        function notifyNew(list) {
+            const o = list[list.length - 1];
+            const b = $('newOrderBanner');
+            b.style.display = 'block';
+            b.textContent = `🔔 ${list.length > 1 ? list.length + ' novos pedidos' : 'Novo pedido'}: ${o.number || ''} — ${o.clientName || ''} — ${o.total || 0} MT (toque para fechar)`;
+            document.title = '🔔 Novo pedido! ' + baseTitle;
+            beep(3);
+        }
+        $('newOrderBanner').addEventListener('click', () => { $('newOrderBanner').style.display = 'none'; document.title = baseTitle; });
+        window.addEventListener('focus', () => { document.title = baseTitle; });
+        $('btnSound').addEventListener('click', () => {
+            try {
+                audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                audioCtx.resume(); beep(1);
+                $('btnSound').textContent = '🔔 Som ativo';
+            } catch (e) { alert('Este navegador não permite som.'); }
+        });
+
+        function orderDay(o) {
+            if (o.dateKey) return o.dateKey;
+            const m = String(o.date || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+        }
+        function todayKey() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+        function statusClass(s) { return 's-' + String(s || 'Pendente').replace(/\s/g, ''); }
+
+        function renderOrders() {
+            const keys = Object.keys(orders).sort().reverse(); // chaves push = ordem cronológica
+            const fDate = $('filterDate').value;
+            const fStatus = $('filterStatus').value;
+            const today = todayKey();
+
+            let todayCount = 0, todayTotal = 0;
+            keys.forEach(k => {
+                const o = orders[k];
+                if (orderDay(o) === today) {
+                    todayCount++;
+                    if (o.status !== 'Cancelado') todayTotal += Number(o.total) || 0;
+                }
+            });
+            $('statToday').textContent = todayCount;
+            $('statTodayTotal').textContent = todayTotal + ' MT';
+            $('statAll').textContent = keys.length;
+
+            const refCounts = {};
+            keys.forEach(k => {
+                const r = String(orders[k].paymentRef || '').toUpperCase();
+                if (r) refCounts[r] = (refCounts[r] || 0) + 1;
+            });
+
+            const list = keys.filter(k => {
+                const o = orders[k];
+                if (fDate && orderDay(o) !== fDate) return false;
+                if (fStatus && (o.status || 'Pendente') !== fStatus) return false;
+                const fPay = $('filterPay').value;
+                if (fPay === 'yes' && !o.paymentVerified) return false;
+                if (fPay === 'no' && o.paymentVerified) return false;
+                const fs = $('filterRef').value.trim().toUpperCase().replace(/\s/g, '');
+                if (fs) {
+                    const hay = [o.paymentRef, o.clientPhone, o.number, o.clientName].map(v => String(v || '').toUpperCase().replace(/\s/g, '')).join('|');
+                    if (!hay.includes(fs)) return false;
+                }
+                return true;
+            });
+
+            if (!list.length) { $('ordersList').innerHTML = '<div class="muted">Nenhum pedido encontrado.</div>'; return; }
+
+            $('ordersList').innerHTML = list.map(k => {
+                const o = orders[k];
+                const st = o.status || 'Pendente';
+                const refKey = String(o.paymentRef || '').toUpperCase();
+                const dup = refKey && refCounts[refKey] > 1;
+                const items = (o.items || []).map(it => `<div>• ${esc(it.name)} (${esc(it.price)} MT)</div>`).join('');
+                const phone = String(o.clientPhone || '').replace(/\D/g, '');
+                const waLink = phone ? `https://wa.me/258${phone.replace(/^258/, '')}` : '';
+                const mapOk = typeof o.gps === 'string' && o.gps.startsWith('https://www.google.com/maps');
+                const btns = STATUSES.filter(s => s !== st).map(s =>
+                    `<button type="button" class="${s === 'Cancelado' ? 'delete-btn' : 'btn-blue'}" data-id="${esc(k)}" data-status="${s}">${s}</button>`
+                ).join('');
+                return `
+                <div class="order ${statusClass(st)}">
+                    <div class="order-head">
+                        <span>${esc(o.number || 'Antigo')} · ${esc(o.date)}</span>
+                        <span class="badge">${esc(st)}</span>
+                    </div>
+                    <div><strong>${esc(o.clientName)}</strong> · ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener">${esc(o.clientPhone)}</a>` : esc(o.clientPhone)}</div>
+                    <div style="margin:5px 0;">${items}</div>
+                    <div style="background:${o.paymentVerified ? '#d1e7dd' : '#fff3cd'}; border-radius:5px; padding:7px; margin:6px 0;">
+                        💳 <strong>${esc(o.paymentMethod || 'Sem método')}</strong> ·
+                        Ref: <strong style="font-size:15px; letter-spacing:1px;">${esc(o.paymentRef || 'não informada')}</strong>
+                        ${o.paymentVerified ? ' · ✅ Verificado' : ' · ⏳ Por verificar'}
+                        ${dup ? '<div style="color:#842029; font-weight:bold;">⚠️ Referência repetida noutro pedido!</div>' : ''}
+                        ${o.paymentRef ? `<div class="status-btns"><button type="button" class="${o.paymentVerified ? 'btn-grey' : 'btn-green'}" data-id="${esc(k)}" data-pay="${o.paymentVerified ? 'off' : 'on'}">${o.paymentVerified ? 'Desmarcar verificação' : '✔ Recebi — pagamento confirmado'}</button></div>` : ''}
+                    </div>
+                    <div>Itens: ${esc(o.subtotal)} MT · Transporte: ${esc(o.deliveryFee)} MT · <strong>Total: ${esc(o.total)} MT</strong></div>
+                    <div>📍 ${esc(o.neighborhood)} ${mapOk ? `· <a href="${esc(o.gps)}" target="_blank" rel="noopener">Ver no mapa</a>` : ''}</div>
+                    <div class="status-btns">${btns}<button type="button" class="delete-btn" style="background:#6c1d1d;" data-id="${esc(k)}" data-del="1">🗑 Eliminar</button></div>
+                </div>`;
+            }).join('');
+        }
+
+        async function bestEffort(fn) { try { await fn(); } catch (e) { console.warn(e); } }
+        function permMsg(err) {
+            return /PERMISSION_DENIED/i.test(err.message || '')
+                ? 'O Firebase recusou a operação (PERMISSION_DENIED). Atualize as regras do Realtime Database com o ficheiro REGRAS-FIREBASE.md.'
+                : 'Não foi possível atualizar: ' + err.message;
+        }
+
+        $('ordersList').addEventListener('click', async (e) => {
+            const b = e.target.closest('button[data-id]');
+            if (!b) return;
+            const id = b.dataset.id;
+            if (b.dataset.pay) {
+                const on = b.dataset.pay === 'on';
+                const po = orders[id];
+                if (!po) return;
+                try { await set(ref(db, `all_orders/${id}/paymentVerified`), on); }
+                catch (err) { alert(permMsg(err)); return; }
+                if (po.v === 2 && po.clientPhone) await bestEffort(() => set(ref(db, `user_orders/${po.clientPhone}/${id}/paymentVerified`), on));
+                await bestEffort(() => set(push(ref(db, 'order_logs')), { orderId: id, number: po.number || '', event: (on ? 'pagamento verificado' : 'verificação removida') + ' (ref ' + (po.paymentRef || '') + ')', at: Date.now(), by: 'admin' }));
+                return;
+            }
+            if (b.dataset.del) {
+                const od = orders[id];
+                if (!od) return;
+                if (!confirm('ELIMINAR o pedido ' + (od.number || '(antigo)') + ' de ' + (od.clientName || 'cliente') + '?\n\nSai do registo e do histórico do cliente. Fica uma cópia de segurança em "deleted_orders" no Firebase.\n\nPara só anular, use "Cancelado".')) return;
+                await bestEffort(() => set(ref(db, `deleted_orders/${id}`), Object.assign({}, od, { deletedAt: Date.now() })));
+                try { await remove(ref(db, `all_orders/${id}`)); }
+                catch (err) { alert(permMsg(err)); return; }
+                if (od.v === 2 && od.clientPhone) await bestEffort(() => remove(ref(db, `user_orders/${od.clientPhone}/${id}`)));
+                await bestEffort(() => set(push(ref(db, 'order_logs')), { orderId: id, number: od.number || '', event: 'eliminado', at: Date.now(), by: 'admin' }));
+                return;
+            }
+            const status = b.dataset.status;
+            if (status === 'Cancelado' && !confirm('Cancelar este pedido?')) return;
+            const o = orders[id];
+            if (!o) return;
+            try { await set(ref(db, `all_orders/${id}/status`), status); }
+            catch (err) { alert(permMsg(err)); return; }
+            // só sincroniza o histórico do cliente se o pedido foi criado com o novo sistema (mesma chave)
+            if (o.v === 2 && o.clientPhone) await bestEffort(() => set(ref(db, `user_orders/${o.clientPhone}/${id}/status`), status));
+            await bestEffort(() => set(push(ref(db, 'order_logs')), { orderId: id, number: o.number || '', event: 'estado: ' + status, at: Date.now(), by: 'admin' }));
+        });
+
+        onValue(ref(db, 'all_orders'), (snap) => {
+            const incoming = snap.val() || {};
+            if (ordersLoaded) {
+                const fresh = Object.keys(incoming).filter(k => !orders[k]).sort().map(k => incoming[k]);
+                if (fresh.length) notifyNew(fresh);
+            }
+            orders = incoming;
+            ordersLoaded = true;
+            renderOrders();
+            renderNearby();
+        }, (err) => {
+            $('ordersList').innerHTML = `<div class="muted" style="color:#842029;">Erro ao carregar pedidos: ${esc(err.message)}</div>`;
+        });
+
+        $('filterDate').addEventListener('change', renderOrders);
+        $('filterStatus').addEventListener('change', renderOrders);
+        $('filterPay').addEventListener('change', renderOrders);
+        $('filterRef').addEventListener('input', renderOrders);
+        $('btnClearFilter').addEventListener('click', () => { $('filterDate').value = ''; $('filterStatus').value = ''; $('filterRef').value = ''; $('filterPay').value = ''; renderOrders(); });
+
+        function download(filename, content, type) {
+            const blob = new Blob([content], { type });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        $('btnCsv').addEventListener('click', () => {
+            const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+            const rows = [['Nº', 'Data', 'Cliente', 'Telefone', 'Bairro', 'Itens', 'Subtotal', 'Transporte', 'Total', 'Estado', 'Mapa', 'Método Pagamento', 'Referência', 'Pagamento Verificado']];
+            Object.keys(orders).sort().forEach(k => {
+                const o = orders[k];
+                rows.push([o.number || '', o.date, o.clientName, o.clientPhone, o.neighborhood,
+                    (o.items || []).map(i => i.name).join(' | '), o.subtotal, o.deliveryFee, o.total, o.status || 'Pendente', o.gps, o.paymentMethod || '', o.paymentRef || '', o.paymentVerified ? 'Sim' : 'Não']);
+            });
+            download('pedidos-karibune-' + todayKey() + '.csv', '\ufeff' + rows.map(r => r.map(q).join(';')).join('\n'), 'text/csv;charset=utf-8');
+        });
+
+        $('btnBackup').addEventListener('click', () => {
+            download('backup-pedidos-karibune-' + todayKey() + '.json', JSON.stringify(orders, null, 2), 'application/json');
+        });
+
+        /* ================== ENTREGAS PRÓXIMAS / MESMA DIREÇÃO ================== */
+        let origin = null; // posição do restaurante (guardada neste aparelho)
+        try { origin = JSON.parse(localStorage.getItem('karibune_origin')); } catch (e) {}
+
+        const rad = x => x * Math.PI / 180;
+        function parseGps(u) {
+            const m = String(u || '').match(/q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+            return m ? { lat: Number(m[1]), lng: Number(m[2]) } : null;
+        }
+        function hav(a, b) {
+            const R = 6371000, dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+            const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+            return 2 * R * Math.asin(Math.sqrt(h));
+        }
+        function bearing(a, b) {
+            const y = Math.sin(rad(b.lng - a.lng)) * Math.cos(rad(b.lat));
+            const x = Math.cos(rad(a.lat)) * Math.sin(rad(b.lat)) - Math.sin(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.cos(rad(b.lng - a.lng));
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        }
+        function angDiff(a, b) { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; }
+        function fmtDist(m) { return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
+        function compass(b) { return ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(b / 45) % 8]; }
+
+        function renderNearby() {
+            const box = $('nearbyList');
+            $('originStatus').textContent = origin
+                ? '🏠 Restaurante definido neste aparelho.'
+                : 'Restaurante não definido (necessário para agrupar por direção e para a rota).';
+
+            const mode = $('nearMode').value;
+            const radius = Number($('nearRadius').value);
+            const angle = Number($('nearAngle').value);
+            const ACTIVE = ['Pendente', 'Confirmado', 'Em Entrega'];
+
+            const pts = [];
+            Object.keys(orders).sort().forEach(k => {
+                const o = orders[k];
+                if (!ACTIVE.includes(o.status || 'Pendente')) return;
+                const p = parseGps(o.gps);
+                if (!p) return;
+                const pt = { id: k, o, p };
+                if (origin) { pt.brg = bearing(origin, p); pt.dOrg = hav(origin, p); }
+                pts.push(pt);
+            });
+
+            if (!pts.length) { box.innerHTML = '<div class="muted">Sem pedidos ativos com GPS.</div>'; return; }
+            if (mode === 'dir' && !origin) {
+                box.innerHTML = '<div class="muted" style="color:#842029;">Para agrupar por direção, clique em "Definir restaurante" no local do restaurante.</div>';
+                return;
+            }
+
+            // agrupar (union-find)
+            const parent = pts.map((_, i) => i);
+            const find = i => parent[i] === i ? i : (parent[i] = find(parent[i]));
+            for (let i = 0; i < pts.length; i++) {
+                for (let j = i + 1; j < pts.length; j++) {
+                    const close = mode === 'dist'
+                        ? hav(pts[i].p, pts[j].p) <= radius
+                        : angDiff(pts[i].brg, pts[j].brg) <= angle;
+                    if (close) parent[find(i)] = find(j);
+                }
+            }
+            const groups = {};
+            pts.forEach((pt, i) => { (groups[find(i)] = groups[find(i)] || []).push(pt); });
+            const multi = Object.values(groups).filter(g => g.length > 1);
+            const singles = Object.values(groups).filter(g => g.length === 1).length;
+
+            if (!multi.length) {
+                box.innerHTML = `<div class="muted">Nenhum pedido ativo está perto de outro com estes critérios. (${singles} pedido(s) isolado(s))</div>`;
+                return;
+            }
+
+            multi.sort((a, b) => b.length - a.length);
+            box.innerHTML = multi.map((g, idx) => {
+                // ordenar paragens
+                let ordered;
+                if (origin) {
+                    ordered = g.slice().sort((a, b) => a.dOrg - b.dOrg);
+                } else {
+                    const left = g.slice(); ordered = [left.shift()];
+                    while (left.length) {
+                        const last = ordered[ordered.length - 1];
+                        left.sort((a, b) => hav(last.p, a.p) - hav(last.p, b.p));
+                        ordered.push(left.shift());
+                    }
+                }
+                const total = ordered.reduce((s, x) => s + (Number(x.o.total) || 0), 0);
+                let prev = origin || null;
+                const rows = ordered.map((x, i) => {
+                    const d = prev ? hav(prev, x.p) : null;
+                    prev = x.p;
+                    const dir = origin ? ` · ${compass(x.brg)} (${Math.round(x.brg)}°) a ${fmtDist(x.dOrg)} do restaurante` : '';
+                    return `<div class="log-line"><strong>${i + 1}.</strong> ${esc(x.o.number || 'Antigo')} · ${esc(x.o.clientName)} · ${esc(x.o.neighborhood)} · ${esc(x.o.total)} MT
+                        <br><small>${d !== null ? '↳ ' + fmtDist(d) + (i === 0 && origin ? ' desde o restaurante' : ' da paragem anterior') : ''}${dir}</small>
+                        <br><small>Estado: ${esc(x.o.status || 'Pendente')} · <a href="https://www.google.com/maps?q=${x.p.lat},${x.p.lng}" target="_blank" rel="noopener">mapa</a></small></div>`;
+                }).join('');
+
+                const dest = ordered[ordered.length - 1].p;
+                const way = ordered.slice(0, -1).slice(0, 9).map(x => `${x.p.lat},${x.p.lng}`).join('|');
+                let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${dest.lat},${dest.lng}`;
+                if (way) url += `&waypoints=${encodeURIComponent(way)}`;
+                if (origin) url += `&origin=${origin.lat},${origin.lng}`;
+                const cut = ordered.length - 1 > 9 ? '<br><small style="color:#842029;">O Google Maps aceita no máximo 9 paragens intermédias.</small>' : '';
+
+                return `<div class="order" style="border-left-color:#6f42c1;">
+                    <div class="order-head"><span>Grupo ${idx + 1} · ${g.length} pedidos</span><span class="badge">${total} MT</span></div>
+                    ${rows}
+                    <div class="status-btns"><button type="button" class="btn-green" onclick="window.open('${url}','_blank')">🗺 Abrir rota no Google Maps</button></div>${cut}
+                </div>`;
+            }).join('') + (singles ? `<div class="muted">${singles} pedido(s) isolado(s), sem vizinhos.</div>` : '');
+        }
+
+        ['nearMode', 'nearRadius', 'nearAngle'].forEach(id => $(id).addEventListener('change', renderNearby));
+
+        $('btnOrigin').addEventListener('click', () => {
+            if (!navigator.geolocation) { alert('Este navegador não suporta GPS.'); return; }
+            $('originStatus').textContent = 'A obter a posição...';
+            navigator.geolocation.getCurrentPosition(pos => {
+                origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                try { localStorage.setItem('karibune_origin', JSON.stringify(origin)); } catch (e) {}
+                renderNearby();
+            }, () => { alert('Não foi possível obter o GPS. Ative a localização.'); renderNearby(); },
+            { enableHighAccuracy: true, timeout: 10000 });
+        });
+        $('btnOriginClear').addEventListener('click', () => {
+            origin = null;
+            try { localStorage.removeItem('karibune_origin'); } catch (e) {}
+            renderNearby();
+        });
+
+        /* ================== NOTIFICAÇÕES PUSH DO ADMIN ================== */
+        const VAPID_KEY = 'BImmuPBM0f_mT0OC-LT54s_hh1Mpd5V1HSpANVENUDfJ2yEVPzEPVTgqy-XhrkWIvPosOkzseywnLSOv0SvY27Q'; // Firebase > Definições > Cloud Messaging > Certificados Web Push
+        const pkey = t => t.replace(/[.#$\[\]\/]/g, '_');
+
+        async function registerAdminPush(interactive) {
+            try {
+                if (VAPID_KEY.startsWith('COLE')) { if (interactive) alert('Falta colocar a chave VAPID no código (veja o ficheiro NOTIFICACOES-LEIA-ME.md).'); return; }
+                if (!('serviceWorker' in navigator) || !('Notification' in window) || !(await isSupported())) {
+                    if (interactive) alert('Este navegador não suporta notificações. No iPhone, adicione o painel ao Ecrã Principal.');
+                    return;
+                }
+                if (Notification.permission !== 'granted') {
+                    if (!interactive) return;
+                    const p = await Notification.requestPermission();
+                    if (p !== 'granted') { alert('Permissão negada. Ative as notificações nas definições do navegador.'); return; }
+                }
+                const reg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+                const token = await getToken(getMessaging(app), { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+                if (token) {
+                    await set(ref(db, 'push_tokens/admins/' + pkey(token)), { token, at: Date.now(), agent: navigator.userAgent.slice(0, 120) });
+                    $('btnPush').textContent = '📲 Notificações ativas neste aparelho';
+                }
+            } catch (e) { if (interactive) alert('Erro ao ativar notificações: ' + e.message); }
+        }
+        $('btnPush').addEventListener('click', () => registerAdminPush(true));
+        registerAdminPush(false);
+
+        /* ================== PROMOÇÕES ================== */
+        const PROMO_TEMPLATES = [
+            { t: '-- Escolha uma frase pronta --', h: '', b: '' },
+            { t: '🍛 Hoje tem Karibune!', h: '🍛 Hoje tem Karibune!', b: 'Peixe, frango, lula ou fígado com arroz, matapa, feijão e salada. Peça já e receba quentinho em casa!' },
+            { t: '😋 Hora do almoço', h: '😋 Hora do almoço!', b: 'Hoje não cozinhe. A Karibune leva o sabor até à sua porta. Faça o seu pedido agora!' },
+            { t: '⏰ Ainda dá tempo', h: '⏰ Ainda dá tempo!', b: 'Os pratos de hoje estão a sair depressa. Garanta já o seu antes que acabe!' },
+            { t: '👨‍👩‍👧 Fim de semana', h: '👨‍👩‍👧 Fim de semana com sabor', b: 'Junte a família à mesa com a comida que dá gosto. Peça pela Karibune!' },
+            { t: '🥤 Bebida', h: '🥤 Sede de sabor?', b: 'Acompanhe o seu prato com uma água fresquinha. Peça já pela Karibune!' }
+        ];
+        $('promoTemplate').innerHTML = PROMO_TEMPLATES.map((p, i) => `<option value="${i}">${esc(p.t)}</option>`).join('');
+        $('promoTemplate').addEventListener('change', () => {
+            const p = PROMO_TEMPLATES[Number($('promoTemplate').value)];
+            if (p.h) { $('promoTitle').value = p.h; $('promoBody').value = p.b; }
+        });
+
+        $('btnPromo').addEventListener('click', async () => {
+            const title = $('promoTitle').value.trim(), body = $('promoBody').value.trim();
+            if (title.length < 3 || body.length < 5) { alert('Escreva o título e a mensagem.'); return; }
+            if (!confirm('Enviar esta notificação a TODOS os clientes que ativaram as notificações?\n\n' + title + '\n' + body)) return;
+            try {
+                await set(push(ref(db, 'promotions')), { title, body, at: Date.now(), by: 'admin' });
+                $('promoTitle').value = ''; $('promoBody').value = ''; $('promoTemplate').value = '0';
+                alert('Notificação enviada para a fila de envio.');
+            } catch (e) { alert('Erro ao enviar: ' + e.message); }
+        });
+
+        onValue(query(ref(db, 'promotions'), limitToLast(10)), (snap) => {
+            const data = snap.val();
+            if (!data) { $('promoList').innerHTML = '<div class="muted">Ainda não enviou nenhuma.</div>'; return; }
+            $('promoList').innerHTML = Object.keys(data).sort().reverse().map(k => {
+                const p = data[k];
+                return `<div class="log-line"><strong>${esc(p.title)}</strong> — ${esc(p.body)}<br><small>${esc(new Date(p.at).toLocaleString('pt-PT'))} · ${p.sentTo !== undefined ? 'entregue a ' + esc(p.sentTo) + ' aparelho(s)' : 'a enviar...'}</small></div>`;
+            }).join('');
+        }, () => { $('promoList').innerHTML = '<div class="muted">Erro ao carregar.</div>'; });
+
+        /* ================== REGISTO DE ATIVIDADE ================== */
+        onValue(query(ref(db, 'order_logs'), limitToLast(50)), (snap) => {
+            const data = snap.val();
+            if (!data) { $('activityLog').innerHTML = '<div class="muted">Sem atividade registada.</div>'; return; }
+            $('activityLog').innerHTML = Object.keys(data).sort().reverse().map(k => {
+                const l = data[k];
+                const when = new Date(l.at).toLocaleString('pt-PT');
+                return `<div class="log-line">${esc(when)} — <strong>${esc(l.number || l.orderId)}</strong>: ${esc(l.event)} (${esc(l.by)})</div>`;
+            }).join('');
+        }, () => { $('activityLog').innerHTML = '<div class="muted">Erro ao carregar.</div>'; });
+
+        /* ================== ERROS DO SITE ================== */
+        onValue(query(ref(db, 'error_logs'), limitToLast(30)), (snap) => {
+            const data = snap.val();
+            if (!data) { $('errorLog').innerHTML = '<div class="muted">✅ Nenhum erro registado.</div>'; return; }
+            $('errorLog').innerHTML = Object.keys(data).sort().reverse().map(k => {
+                const l = data[k];
+                const when = new Date(l.at).toLocaleString('pt-PT');
+                return `<div class="err-line">${esc(when)} — <strong>${esc(l.type)}</strong>: ${esc(l.message)} ${l.extra ? '(' + esc(l.extra) + ')' : ''} ${l.user ? '· ' + esc(l.user) : ''}</div>`;
+            }).join('');
+        }, () => { $('errorLog').innerHTML = '<div class="muted">Erro ao carregar.</div>'; });
+
+        /* ================== GESTÃO DO MENU (igual ao anterior) ================== */
+        $('addRiceForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const [name, img] = $('riceOptionSelect').value.split('|');
+            set(push(ref(db, 'riceOptions')), { name: name, image: img });
+        });
+
+        $('btnAllRice').addEventListener('click', () => {
+            presetRiceOptions.forEach(item => set(push(ref(db, 'riceOptions')), item));
+        });
+
+        $('addDishForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const [name, img] = $('dishOptionSelect').value.split('|');
+            const price = Number($('dishPrice').value);
+            set(push(ref(db, 'dishOptions')), { name: name, price: price, image: img });
+        });
+
+        $('btnAllDishes').addEventListener('click', () => {
+            presetDishOptions.forEach(item => set(push(ref(db, 'dishOptions')), item));
+        });
+
+        $('btnAllDrinks').addEventListener('click', () => {
+            presetDrinkOptions.forEach(item => set(push(ref(db, 'drinkOptions')), item));
+        });
+
+        onValue(ref(db, 'riceOptions'), (snapshot) => {
+            const list = $('admin-rice-list');
+            list.innerHTML = '';
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    list.innerHTML += `<div class="dish-item"><span><strong>${esc(data[key].name)}</strong></span><button class="delete-btn" onclick="removeFirebaseItem('riceOptions', '${key}')">Remover</button></div>`;
+                });
+            }
+        });
+
+        onValue(ref(db, 'dishOptions'), (snapshot) => {
+            const list = $('admin-dishes-list');
+            list.innerHTML = '';
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    list.innerHTML += `<div class="dish-item"><span><strong>${esc(data[key].name)}</strong> - ${esc(data[key].price)} MT</span><button class="delete-btn" onclick="removeFirebaseItem('dishOptions', '${key}')">Remover</button></div>`;
+                });
+            }
+        });
+
+        onValue(ref(db, 'drinkOptions'), (snapshot) => {
+            const list = $('admin-drinks-list');
+            list.innerHTML = '';
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    list.innerHTML += `<div class="dish-item"><span>🥤 <strong>${esc(data[key].name)}</strong> - ${esc(data[key].price)} MT</span><button class="delete-btn" onclick="removeFirebaseItem('drinkOptions', '${key}')">Remover</button></div>`;
+                });
+            }
+        });
+
+        window.removeFirebaseItem = function(path, key) {
+            if (confirm('Remover este item do menu?')) remove(ref(db, `${path}/${key}`));
+        };
+    </script>
+
+    <script>
+        function updateRicePreview(val) { document.getElementById('ricePreview').src = val.split('|')[1]; }
+        function updateDishPreview(val) { document.getElementById('dishPreview').src = val.split('|')[1]; }
+    </script>
+</body>
+</html>
